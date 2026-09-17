@@ -9,6 +9,7 @@
 [![Symfony](https://img.shields.io/badge/symfony-8.1-000000?logo=symfony)](api/composer.json)
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](.github/dependabot.yml)
 [![Open Issues](https://img.shields.io/github/issues/michalper/wskz)](https://github.com/michalper/wskz/issues)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Microservice PoC for an intelligent message router: it takes a user's request (sender email +
 free-form text), classifies it with a local LLM (Ollama) through an AI agent using
@@ -45,24 +46,50 @@ curl -X POST http://localhost:8080/api/v1/route-message \
 Response:
 
 ```json
-{"department": "it@example.com", "subject": "..."}
+{
+  "department": "it@example.com",
+  "subject": "..."
+}
 ```
 
 The message shows up in MailHog (http://localhost:8025), addressed to the chosen department,
 with the `Reply-To` header set to `jan.nowak@example.com`.
 
+`GET /api/v1/health` reports whether the API and Ollama are reachable (200 `{"status":"ok",...}`,
+or 503 if Ollama isn't).
+
 ## Architecture and decisions
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant API as Symfony API
+    participant Agent as MessageRoutingAgent
+    participant Ollama as Ollama (llama3.2:3b)
+    participant Mail as MailHog
+
+    User->>API: POST /api/v1/route-message {email, message}
+    API->>Agent: route(email, message)
+    Agent->>Ollama: chat + send_email tool definition
+    Ollama-->>Agent: tool_calls: send_email(department, subject, body)
+    alt tool call succeeds
+        Agent->>Mail: SMTP send (Reply-To: email)
+    else LLM errors, times out, or skips the tool call
+        Agent->>Mail: SMTP send to other@example.com (safety net)
+    end
+    Agent-->>API: department, subject
+    API-->>User: 200 {department, subject}
+```
 
 - **Symfony** (skeleton, no ORM/Twig beyond what Swagger UI needs) as the API framework —
   `#[Route]`/`#[MapRequestPayload]` attributes plus the Symfony Validator for request validation.
 - **neuron-core/neuron-ai** as the agent library: the agent gets one tool (`SendEmailTool`),
-  which the LLM invokes via function-calling, picking a department address from a closed list
-  (`App\Dto\Department`).
+  which the LLM invokes via function-calling, picking a department address from a closed list (`App\Dto\Department`).
 - **Ollama** (`llama3.2:3b`) as the local LLM engine. The `1b` model was unreliable at actually
   calling the tool (it would answer with plain text instead of emitting `tool_calls`) — `3b`
   called `send_email` reliably in testing, at the cost of a slower (CPU-only) response time.
-- The HTTP timeout for Ollama calls is raised to 300s, and generation is capped at 200 tokens
-  (`num_predict`) — local CPU inference is much slower than a hosted API, and without a cap a
+- The HTTP timeout for Ollama calls is raised to 300s, and generation is capped at 200 tokens (`num_predict`) — local
+  CPU inference is much slower than a hosted API, and without a cap a
   small model can occasionally ramble well past what a tool call or a one-line confirmation
   needs.
 - **MailHog** captures mail sent through Symfony Mailer (SMTP) — lets you verify the body,
@@ -73,6 +100,16 @@ with the `Reply-To` header set to `jan.nowak@example.com`.
 - **Swagger/OpenAPI** (`nelmio/api-doc-bundle`) exposed at `/api/v1/docs`.
 - **The API is served by PHP's built-in server** (`php -S`) inside the container — good enough
   for a PoC, no extra nginx container needed.
+- **Structured logging** via `symfony/monolog-bundle` — JSON to stderr in `prod` (captured by
+  `docker logs`), human-readable in `dev`. The test environment overrides the `logger` service
+  with a `NullLogger` (see `config/services.yaml`): without one, Symfony's debug error handler
+  writes every caught-and-handled exception straight to STDERR, which made Infection's initial
+  test run kill the process the moment a validation test logged its (expected, already-handled)
+  422 exception.
+- **Docker healthchecks** on all three services (`docker-compose.yml`), with `api` waiting on
+  `mailhog`/`ollama` to report healthy before it depends on them. The Ollama healthcheck confirms
+  the server is accepting requests, not that the model has finished downloading — that gap is
+  covered by the API's own generous timeout and safety-net fallback.
 
 ## Repo layout
 
@@ -81,7 +118,7 @@ docker-compose.yml
 docker/php/Dockerfile        # API image (PHP 8.4 CLI + built-in server)
 docker/ollama/entrypoint.sh  # pulls the model, then starts the Ollama server
 api/                         # the Symfony application
-  src/Controller/            # HTTP endpoint
+  src/Controller/            # HTTP endpoints (routing + health)
   src/Service/               # AI agent orchestration
   src/Tool/                  # the email-sending tool (function calling)
   src/Dto/                   # request DTO, department list, routing outcome
@@ -127,6 +164,5 @@ CI (`.github/workflows/ci.yml`, `coverage.yml`) runs the same steps on every pus
 - **[SonarCloud](https://sonarcloud.io/project/overview?id=michalper_wskz)** static analysis runs
   automatically on push.
 - Third-party GitHub Actions (`shivammathur/setup-php`, `codecov/codecov-action`) are pinned to a
-  full commit SHA rather than a mutable version tag, per SonarCloud's supply-chain rule
-  (`githubactions:S7637`).
+  full commit SHA rather than a mutable version tag, per SonarCloud's supply-chain rule (`githubactions:S7637`).
 - **Dependabot** keeps Composer dependencies (`api/`) and GitHub Actions up to date weekly.

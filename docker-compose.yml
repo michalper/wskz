@@ -11,14 +11,27 @@ services:
       OLLAMA_URL: http://ollama:11434/api
       OLLAMA_MODEL: llama3.2:3b
     depends_on:
-      - mailhog
-      - ollama
+      mailhog:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://localhost:8080/api/v1/docs') === false ? 1 : 0);"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   mailhog:
     image: mailhog/mailhog
     ports:
       - "1025:1025"
       - "8025:8025"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   ollama:
     image: ollama/ollama
@@ -30,6 +43,15 @@ services:
       - ./docker/ollama/entrypoint.sh:/entrypoint.sh:ro
     ports:
       - "11434:11434"
+    healthcheck:
+      # Confirms the Ollama server itself is up and accepting requests, not that
+      # the model has finished downloading (that can take minutes on first run;
+      # the API's own generous request timeout/fallback handles that gap).
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
 volumes:
   ollama-data:
