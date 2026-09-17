@@ -22,6 +22,10 @@ RUN composer install --no-scripts --no-interaction --prefer-dist
 COPY api/ ./
 RUN composer dump-autoload --optimize
 
+RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /app
+USER 1000
+
 EXPOSE 8080
 
 CMD ["php", "-d", "variables_order=EGPCS", "-S", "0.0.0.0:8080", "-t", "public", "public/index.php"]
