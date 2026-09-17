@@ -58,4 +58,18 @@ final class SendEmailToolTest extends TestCase
 
         $this->assertSame(Department::Other->value, $outcome->departmentEmail);
     }
+
+    public function testAllToolPropertiesAreRequired(): void
+    {
+        $tool = new SendEmailTool(
+            $this->createStub(MailerInterface::class),
+            'jan.nowak@example.com',
+            new RoutingOutcome(),
+        );
+
+        $this->assertSame(
+            ['department_email', 'subject', 'body'],
+            $tool->getRequiredProperties(),
+        );
+    }
 }
