@@ -18,3 +18,10 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
+
+###> infection/infection ###
+/clover.xml
+/junit.xml
+/infection.log
+/infection-summary.log
+###< infection/infection ###
