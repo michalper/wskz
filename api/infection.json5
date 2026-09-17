@@ -1,0 +1,17 @@
+{
+    "source": {
+        "directories": [
+            "src"
+        ]
+    },
+    "mutators": {
+        "@default": true
+    },
+    "minMsi": 60,
+    "minCoveredMsi": 60,
+    "testFramework": "phpunit",
+    "logs": {
+        "text": "infection.log",
+        "summary": "infection-summary.log"
+    }
+}

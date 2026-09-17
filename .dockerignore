@@ -1,0 +1,6 @@
+api/var/
+api/vendor/
+api/.phpunit.cache/
+api/.php-cs-fixer.cache
+.git/
+.idea/

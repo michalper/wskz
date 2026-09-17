@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+defaults:
+  run:
+    working-directory: api
+
+jobs:
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer audit --abandoned=report
+      - run: >
+          vendor/bin/phpunit
+          --display-phpunit-notices --display-notices --display-warnings --display-deprecations
+          --fail-on-phpunit-notice --fail-on-notice --fail-on-warning --fail-on-deprecation
+
+  static-analysis:
+    name: Static analysis (PHPStan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+      - run: composer install --no-interaction --prefer-dist
+      - run: vendor/bin/phpstan analyse --no-progress
+
+  coding-standard:
+    name: Coding standard (PHP-CS-Fixer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer cs-check
+
+  rector:
+    name: Rector (dry-run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer rector-check

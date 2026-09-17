@@ -1,0 +1,41 @@
+name: Coverage
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+defaults:
+  run:
+    working-directory: api
+
+jobs:
+  php-coverage:
+    name: PHPUnit coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: pcov
+      - run: composer install --no-interaction --prefer-dist
+      - run: vendor/bin/phpunit --coverage-clover clover.xml --log-junit junit.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-clover
+          path: api/clover.xml
+
+  mutation-testing:
+    name: Mutation testing (Infection)
+    needs: php-coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: pcov
+      - run: composer install --no-interaction --prefer-dist
+      - run: vendor/bin/infection --threads=$(nproc) --logger-github --no-interaction

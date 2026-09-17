@@ -1,0 +1,67 @@
+name: E2E (docker compose)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  e2e:
+    name: docker compose up + real routing request
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start the stack
+        run: docker compose up -d --build
+
+      - name: Wait for the model to be pulled and the API to answer
+        run: |
+          echo "Waiting for API..."
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/docs || true)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+
+          echo "Waiting for Ollama to finish pulling the model..."
+          for i in $(seq 1 120); do
+            docker compose logs ollama 2>&1 | grep -q "success" && break
+            sleep 5
+          done
+
+      - name: Send a routing request and capture the response
+        run: |
+          curl -sf -X POST http://localhost:8080/api/v1/route-message \
+            -H "Content-Type: application/json" \
+            -d '{"email": "jan.nowak@example.com", "message": "Nie dziala mi komputer, prosze o pomoc"}' \
+            --max-time 280 \
+            -o response.json
+          cat response.json
+
+      - name: Assert the department is one of the allowed addresses
+        run: |
+          department=$(jq -r '.department' response.json)
+          case "$department" in
+            human-resources@example.com|help-desk@example.com|it@example.com|kadry@example.com|other@example.com)
+              echo "Department OK: $department" ;;
+            *)
+              echo "Unexpected department: $department" && exit 1 ;;
+          esac
+
+      - name: Assert MailHog captured the email with the correct Reply-To
+        run: |
+          message=$(curl -sf http://localhost:8025/api/v2/messages | jq '.items[0]')
+          echo "$message" | jq .
+          reply_to=$(echo "$message" | jq -r '.Content.Headers["Reply-To"][0]')
+          [ "$reply_to" = "jan.nowak@example.com" ] || (echo "Wrong Reply-To: $reply_to" && exit 1)
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

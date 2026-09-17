@@ -1,0 +1,35 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: prod
+      MAILER_DSN: smtp://mailhog:1025
+      OLLAMA_URL: http://ollama:11434/api
+      OLLAMA_MODEL: llama3.2:3b
+    depends_on:
+      - mailhog
+      - ollama
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  ollama:
+    image: ollama/ollama
+    entrypoint: ["/entrypoint.sh"]
+    environment:
+      OLLAMA_MODEL: llama3.2:3b
+    volumes:
+      - ollama-data:/root/.ollama
+      - ./docker/ollama/entrypoint.sh:/entrypoint.sh:ro
+    ports:
+      - "11434:11434"
+
+volumes:
+  ollama-data:

@@ -1,0 +1,10 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: Message Router API
+            description: AI-powered message categorization and routing PoC
+            version: 1.0.0
+    areas:
+        default:
+            path_patterns:
+                - ^/api/v1
