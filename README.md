@@ -19,6 +19,8 @@ free-form text), classifies it with a local LLM (Ollama) through an AI agent usi
 function-calling (`neuron-core/neuron-ai`), and emails it to the right department, captured by
 MailHog.
 
+📸 **[See it running — screenshots of Swagger, a routed email, and the fallback in action](https://github.com/michalper/wskz/wiki)**
+
 ## Running it
 
 ```bash

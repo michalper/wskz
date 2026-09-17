@@ -3,3 +3,8 @@
 
 # Editors
 *.swp
+
+# Local Playwright MCP artifacts (screenshots, snapshots) used to build wiki
+# pages -- not part of the app or its docs.
+.playwright-mcp/
+.wiki-assets/
