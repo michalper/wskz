@@ -87,6 +87,7 @@
         "friendsofphp/php-cs-fixer": "*",
         "infection/infection": "^0.35.4",
         "phpstan/phpstan": "*",
+        "phpstan/phpstan-strict-rules": "^2.0",
         "phpstan/phpstan-symfony": "*",
         "phpunit/phpunit": "*",
         "rector/rector": "*",

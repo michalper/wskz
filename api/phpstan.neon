@@ -11,3 +11,4 @@ parameters:
 
 includes:
     - vendor/phpstan/phpstan-symfony/extension.neon
+    - vendor/phpstan/phpstan-strict-rules/rules.neon

@@ -3,6 +3,9 @@
 [![CI](https://github.com/michalper/wskz/actions/workflows/ci.yml/badge.svg)](https://github.com/michalper/wskz/actions/workflows/ci.yml)
 [![Coverage](https://github.com/michalper/wskz/actions/workflows/coverage.yml/badge.svg)](https://github.com/michalper/wskz/actions/workflows/coverage.yml)
 [![E2E](https://github.com/michalper/wskz/actions/workflows/e2e.yml/badge.svg)](https://github.com/michalper/wskz/actions/workflows/e2e.yml)
+[![CodeQL](https://github.com/michalper/wskz/actions/workflows/codeql.yml/badge.svg)](https://github.com/michalper/wskz/actions/workflows/codeql.yml)
+[![Docker security](https://github.com/michalper/wskz/actions/workflows/docker-security.yml/badge.svg)](https://github.com/michalper/wskz/actions/workflows/docker-security.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/michalper/wskz/badge)](https://securityscorecards.dev/viewer/?uri=github.com/michalper/wskz)
 [![codecov](https://codecov.io/gh/michalper/wskz/graph/badge.svg)](https://codecov.io/gh/michalper/wskz)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=michalper_wskz&metric=alert_status)](https://sonarcloud.io/project/overview?id=michalper_wskz)
 [![PHP](https://img.shields.io/badge/php-8.4%2B-777bb4)](api/composer.json)
@@ -163,6 +166,16 @@ CI (`.github/workflows/ci.yml`, `coverage.yml`) runs the same steps on every pus
   assertions).
 - **[SonarCloud](https://sonarcloud.io/project/overview?id=michalper_wskz)** static analysis runs
   automatically on push.
-- Third-party GitHub Actions (`shivammathur/setup-php`, `codecov/codecov-action`) are pinned to a
-  full commit SHA rather than a mutable version tag, per SonarCloud's supply-chain rule (`githubactions:S7637`).
+- Third-party GitHub Actions (`shivammathur/setup-php`, `codecov/codecov-action`, `ossf/scorecard-action`,
+  `hadolint/hadolint-action`, `aquasecurity/trivy-action`) are pinned to a full commit SHA rather
+  than a mutable version tag, per SonarCloud's supply-chain rule (`githubactions:S7637`).
+- **[CodeQL](https://github.com/michalper/wskz/security/code-scanning)** (`codeql.yml`) — CodeQL
+  doesn't support PHP, so this scans the `.github/workflows/*.yml` files themselves (the `actions`
+  language) for things like script-injection via untrusted inputs.
+- **[Docker security](.github/workflows/docker-security.yml)** — Hadolint lints `docker/php/Dockerfile`;
+  Trivy builds the image and scans it for CRITICAL/HIGH CVEs, uploaded to the Security tab.
+- **[OpenSSF Scorecard](https://securityscorecards.dev/viewer/?uri=github.com/michalper/wskz)**
+  (`scorecard.yml`) — scores the repo's supply-chain security posture (pinned dependencies, branch
+  protection, etc.) weekly.
+- **PHPStan strict rules** (`phpstan/phpstan-strict-rules`) layered on top of `level: max`.
 - **Dependabot** keeps Composer dependencies (`api/`) and GitHub Actions up to date weekly.

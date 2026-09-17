@@ -1,6 +1,13 @@
 FROM php:8.4-cli
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Pinned exact apt versions would break on every Debian point-release used by
+# this base image tag; the PHP version itself is already pinned via the tag.
+# `apt-get upgrade` pulls current security patches for whatever base-image
+# packages are already installed (gzip, libpcre2, ...) from that same tag's
+# Debian repos, closing known CVEs without pinning to individual package
+# versions.
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
         unzip \
         git \
     && rm -rf /var/lib/apt/lists/*
