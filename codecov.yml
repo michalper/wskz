@@ -1,0 +1,22 @@
+coverage:
+  precision: 2
+  round: down
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+
+ignore:
+  - "api/vendor"
+  - "api/tests"
+  - "api/public/index.php"
+  - "api/src/Kernel.php"
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
