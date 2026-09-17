@@ -1,0 +1,15 @@
+version: 2
+
+updates:
+  - package-ecosystem: composer
+    directory: "/api"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+
+  # Keeps actions/checkout and the SHA-pinned third-party actions (shivammathur/setup-php,
+  # codecov/codecov-action) up to date and patches CVEs in the actions themselves.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

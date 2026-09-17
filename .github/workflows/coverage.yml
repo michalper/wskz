@@ -23,12 +23,12 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: vendor/bin/phpunit --coverage-clover clover.xml --log-junit junit.xml
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: api/clover.xml
           fail_ci_if_error: false
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-clover
           path: api/clover.xml

@@ -1,106 +1,132 @@
 # AI Message Router — PoC
 
-Mikroserwisowy PoC routera wiadomości: przyjmuje zgłoszenie użytkownika (email + treść),
-klasyfikuje je lokalnym modelem LLM (Ollama) za pomocą agenta AI z function-calling
-(`neuron-core/neuron-ai`) i wysyła e-mail do odpowiedniego działu, przechwytywany przez MailHog.
+[![CI](https://github.com/michalper/wskz/actions/workflows/ci.yml/badge.svg)](https://github.com/michalper/wskz/actions/workflows/ci.yml)
+[![Coverage](https://github.com/michalper/wskz/actions/workflows/coverage.yml/badge.svg)](https://github.com/michalper/wskz/actions/workflows/coverage.yml)
+[![E2E](https://github.com/michalper/wskz/actions/workflows/e2e.yml/badge.svg)](https://github.com/michalper/wskz/actions/workflows/e2e.yml)
+[![codecov](https://codecov.io/gh/michalper/wskz/graph/badge.svg)](https://codecov.io/gh/michalper/wskz)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=michalper_wskz&metric=alert_status)](https://sonarcloud.io/project/overview?id=michalper_wskz)
+[![PHP](https://img.shields.io/badge/php-8.4%2B-777bb4)](api/composer.json)
+[![Symfony](https://img.shields.io/badge/symfony-8.1-000000?logo=symfony)](api/composer.json)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](.github/dependabot.yml)
+[![Open Issues](https://img.shields.io/github/issues/michalper/wskz)](https://github.com/michalper/wskz/issues)
 
-## Uruchomienie
+Microservice PoC for an intelligent message router: it takes a user's request (sender email +
+free-form text), classifies it with a local LLM (Ollama) through an AI agent using
+function-calling (`neuron-core/neuron-ai`), and emails it to the right department, captured by
+MailHog.
+
+## Running it
 
 ```bash
 docker compose up -d
 ```
 
-Po chwili (pierwszy start pobiera wagi modelu `llama3.2:3b`, ok. 2 GB, kilka minut) dostępne są:
+After a bit (the first start pulls the `llama3.2:3b` model weights, ~2 GB, a few minutes), you
+get:
 
 - API: http://localhost:8080
-- Dokumentacja Swagger: http://localhost:8080/api/v1/docs
-- MailHog (panel przechwyconych maili): http://localhost:8025
+- Swagger docs: http://localhost:8080/api/v1/docs
+- MailHog (captured-mail inbox): http://localhost:8025
 
-Postęp pobierania modelu można obejrzeć w logach kontenera Ollama:
+Watch the model download progress in the Ollama container's logs:
 
 ```bash
 docker compose logs -f ollama
 ```
 
-## Przykładowe zapytanie
+## Example request
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/route-message \
   -H "Content-Type: application/json" \
-  -d '{"email": "jan.nowak@example.com", "message": "Nie dziala mi komputer"}'
+  -d '{"email": "jan.nowak@example.com", "message": "My computer is broken"}'
 ```
 
-Odpowiedź:
+Response:
 
 ```json
 {"department": "it@example.com", "subject": "..."}
 ```
 
-Wiadomość pojawi się w MailHog (http://localhost:8025), zaadresowana do wybranego działu,
-z nagłówkiem `Reply-To` ustawionym na `jan.nowak@example.com`.
+The message shows up in MailHog (http://localhost:8025), addressed to the chosen department,
+with the `Reply-To` header set to `jan.nowak@example.com`.
 
-## Architektura i decyzje
+## Architecture and decisions
 
-- **Symfony** (szkielet, bez ORM/Twig poza tym co wymaga Swagger UI) jako framework API —
-  atrybuty `#[Route]`, `#[MapRequestPayload]` + Symfony Validator do walidacji requestu.
-- **neuron-core/neuron-ai** jako biblioteka agentowa: agent dostaje jedno narzędzie
-  (`SendEmailTool`), które LLM wywołuje przez function-calling, wybierając adres działu
-  z zamkniętej listy (`App\Dto\Department`).
-- **Ollama** (`llama3.2:3b`) jako lokalny silnik LLM. Model `1b` bywał zawodny przy
-  wywoływaniu narzędzia (odpowiadał zwykłym tekstem zamiast `tool_calls`) — `3b` w testach
-  wywoływał `send_email` niezawodnie, kosztem wolniejszego (CPU-only) czasu odpowiedzi.
-- HTTP timeout dla wywołań Ollamy jest podniesiony do 300s (lokalne wnioskowanie na CPU
-  jest znacznie wolniejsze niż hostowane API).
-- **MailHog** przechwytuje pocztę wysyłaną przez Symfony Mailer (SMTP) — pozwala zweryfikować
-  treść, adresata i nagłówek `Reply-To` bez realnej wysyłki.
-- **Bezpiecznik (fallback)**: jeśli LLM nie wywoła narzędzia (błąd, timeout, nieprawidłowa
-  odpowiedź), `MessageRoutingAgent` samodzielnie wysyła zgłoszenie na `other@example.com`,
-  żeby żadne zgłoszenie nie zostało zgubione.
-- **Swagger/OpenAPI** (`nelmio/api-doc-bundle`) wystawiony pod `/api/v1/docs`.
-- **API serwowane przez wbudowany serwer PHP** (`php -S`) w kontenerze — wystarczające dla
-  PoC, bez dodatkowego kontenera nginx.
+- **Symfony** (skeleton, no ORM/Twig beyond what Swagger UI needs) as the API framework —
+  `#[Route]`/`#[MapRequestPayload]` attributes plus the Symfony Validator for request validation.
+- **neuron-core/neuron-ai** as the agent library: the agent gets one tool (`SendEmailTool`),
+  which the LLM invokes via function-calling, picking a department address from a closed list
+  (`App\Dto\Department`).
+- **Ollama** (`llama3.2:3b`) as the local LLM engine. The `1b` model was unreliable at actually
+  calling the tool (it would answer with plain text instead of emitting `tool_calls`) — `3b`
+  called `send_email` reliably in testing, at the cost of a slower (CPU-only) response time.
+- The HTTP timeout for Ollama calls is raised to 300s, and generation is capped at 200 tokens
+  (`num_predict`) — local CPU inference is much slower than a hosted API, and without a cap a
+  small model can occasionally ramble well past what a tool call or a one-line confirmation
+  needs.
+- **MailHog** captures mail sent through Symfony Mailer (SMTP) — lets you verify the body,
+  recipient, and `Reply-To` header without a real send.
+- **Safety-net fallback**: if the LLM fails to call the tool (error, timeout, malformed
+  response), `MessageRoutingAgent` sends the request to `other@example.com` itself, so no
+  request is ever silently dropped.
+- **Swagger/OpenAPI** (`nelmio/api-doc-bundle`) exposed at `/api/v1/docs`.
+- **The API is served by PHP's built-in server** (`php -S`) inside the container — good enough
+  for a PoC, no extra nginx container needed.
 
-## Struktura repo
+## Repo layout
 
 ```
 docker-compose.yml
-docker/php/Dockerfile        # obraz API (PHP 8.4 CLI + wbudowany serwer)
-docker/ollama/entrypoint.sh  # pull modelu + start serwera Ollama
-api/                         # aplikacja Symfony
-  src/Controller/            # endpoint HTTP
-  src/Service/               # orkiestracja agenta AI
-  src/Tool/                  # narzędzie wysyłki e-mail (function calling)
-  src/Dto/                   # DTO requestu, lista działów, wynik routingu
-  tests/                     # PHPUnit (unit + funkcjonalne)
-.github/workflows/           # CI: testy, PHPStan, PHP-CS-Fixer, Rector, coverage, Infection
+docker/php/Dockerfile        # API image (PHP 8.4 CLI + built-in server)
+docker/ollama/entrypoint.sh  # pulls the model, then starts the Ollama server
+api/                         # the Symfony application
+  src/Controller/            # HTTP endpoint
+  src/Service/               # AI agent orchestration
+  src/Tool/                  # the email-sending tool (function calling)
+  src/Dto/                   # request DTO, department list, routing outcome
+  tests/                     # PHPUnit (unit + functional)
+.github/workflows/           # CI: tests, PHPStan, PHP-CS-Fixer, Rector, coverage, Infection, e2e
 ```
 
-## Kryteria akceptacji (DoD)
+## Acceptance criteria (DoD)
 
-- [x] `docker compose up -d` podnosi w pełni działające API, MailHog i Ollamę.
-- [x] API udostępnia dokumentację Swagger pod adresem `/api/v1/docs`.
-- [x] W repozytorium znajduje się `README.md` z instrukcją uruchomienia i opisem projektu.
-- [x] Request na endpoint API skutkuje analizą treści i pojawieniem się nowej wiadomości w MailHog.
-- [x] Przechwycona wiadomość jest zaadresowana do prawidłowego działu (zgodnie z listą).
-- [x] Przechwycona wiadomość zawiera prawidłowo ustawiony nagłówek `Reply-To`.
+- [x] `docker compose up -d` brings up a fully working API, MailHog, and Ollama.
+- [x] The API exposes Swagger documentation at `/api/v1/docs`.
+- [x] The repo includes a `README.md` with setup instructions and a project description.
+- [x] Hitting the API endpoint analyzes the message and produces a new message in MailHog.
+- [x] The captured message is addressed to the correct department (per the allowed list).
+- [x] The captured message carries a correctly-set `Reply-To` header.
 
-Każdy z powyższych punktów (poza samym README) jest zweryfikowany automatycznie w CI —
-zobacz `.github/workflows/e2e.yml`: uruchamia `docker compose up -d --build`, czeka na
-pobranie modelu, wysyła realny request do API i sprawdza przez API MailHoga, że wiadomość
-trafiła do prawidłowego działu z poprawnym nagłówkiem `Reply-To`.
+Every one of these (besides the README itself) is verified automatically in CI — see
+`.github/workflows/e2e.yml`: it runs `docker compose up -d --build`, waits for the model to be
+pulled, sends a real request to the API, and checks via MailHog's API that the message landed in
+the right department mailbox with the correct `Reply-To` header.
 
-## Testy i jakość kodu lokalnie
+## Tests and code quality, locally
 
-Wszystkie polecenia uruchamiane w katalogu `api/`:
+All commands run from the `api/` directory:
 
 ```bash
 composer install
 composer test            # PHPUnit
-composer phpstan          # PHPStan (level max)
+composer phpstan          # PHPStan (max level)
 composer cs-check         # PHP-CS-Fixer (dry-run)
 composer rector-check     # Rector (dry-run)
 composer infection        # mutation testing
 ```
 
-CI (`.github/workflows/ci.yml`, `coverage.yml`) uruchamia te same kroki na każdym
-push/PR do `main`/`master`.
+CI (`.github/workflows/ci.yml`, `coverage.yml`) runs the same steps on every push/PR to
+`main`/`master`, plus:
+
+- **Coverage** uploads to [Codecov](https://codecov.io/gh/michalper/wskz) and runs
+  [Infection](https://infection.github.io/) mutation testing (minimum MSI: 50% — the remaining
+  escaped mutants are concatenation-order/removal mutations on natural-language LLM
+  prompt/description strings, not meaningfully testable without brittle exact-wording
+  assertions).
+- **[SonarCloud](https://sonarcloud.io/project/overview?id=michalper_wskz)** static analysis runs
+  automatically on push.
+- Third-party GitHub Actions (`shivammathur/setup-php`, `codecov/codecov-action`) are pinned to a
+  full commit SHA rather than a mutable version tag, per SonarCloud's supply-chain rule
+  (`githubactions:S7637`).
+- **Dependabot** keeps Composer dependencies (`api/`) and GitHub Actions up to date weekly.
