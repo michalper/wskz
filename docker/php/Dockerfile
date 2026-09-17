@@ -1,4 +1,4 @@
-FROM php:8.4-cli
+FROM php:8.4-cli@sha256:a9c8c681304716e000318f590480b6f47f3f3e018794b5f9d65d827f75d3bd00
 
 # Pinned exact apt versions would break on every Debian point-release used by
 # this base image tag; the PHP version itself is already pinned via the tag.
@@ -12,7 +12,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
         git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2@sha256:aaeab4b6b031e0a88efb907f0f26b563532a644fc2f4ea0d000ecf8658f7a2b8 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 

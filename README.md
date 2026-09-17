@@ -168,9 +168,11 @@ CI (`.github/workflows/ci.yml`, `coverage.yml`) runs the same steps on every pus
   assertions).
 - **[SonarCloud](https://sonarcloud.io/project/overview?id=michalper_wskz)** static analysis runs
   automatically on push.
-- Third-party GitHub Actions (`shivammathur/setup-php`, `codecov/codecov-action`, `ossf/scorecard-action`,
-  `hadolint/hadolint-action`, `aquasecurity/trivy-action`) are pinned to a full commit SHA rather
-  than a mutable version tag, per SonarCloud's supply-chain rule (`githubactions:S7637`).
+- Every GitHub Action used anywhere in `.github/workflows/` (including `actions/checkout` and
+  `github/codeql-action`, not just third-party ones) is pinned to a full commit SHA rather than a
+  mutable version tag, per SonarCloud's `githubactions:S7637` and OpenSSF Scorecard's
+  Pinned-Dependencies check. The Docker base images (`php:8.4-cli`, `composer:2`) are pinned by
+  digest for the same reason.
 - **[CodeQL](https://github.com/michalper/wskz/security/code-scanning)** (`codeql.yml`) — CodeQL
   doesn't support PHP, so this scans the `.github/workflows/*.yml` files themselves (the `actions`
   language) for things like script-injection via untrusted inputs.
@@ -181,3 +183,6 @@ CI (`.github/workflows/ci.yml`, `coverage.yml`) runs the same steps on every pus
   protection, etc.) weekly.
 - **PHPStan strict rules** (`phpstan/phpstan-strict-rules`) layered on top of `level: max`.
 - **Dependabot** keeps Composer dependencies (`api/`) and GitHub Actions up to date weekly.
+- Every workflow declares an explicit, read-only top-level `permissions:` block (OpenSSF
+  Scorecard's Token-Permissions check), and [`SECURITY.md`](SECURITY.md) documents how to report
+  a vulnerability privately.

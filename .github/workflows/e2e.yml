@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+
 jobs:
   e2e:
     name: docker compose up + real routing requests
@@ -13,7 +16,7 @@ jobs:
     # 5 sequential live-LLM requests on CPU-only CI runners, ~1-3 min each.
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build and start the stack
         run: docker compose up -d --build
