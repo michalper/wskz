@@ -55,7 +55,11 @@ final readonly class HealthController
     private function isOllamaReachable(): bool
     {
         try {
-            $response = ($this->httpClient ?? new Client())->request('GET', "{$this->ollamaUrl}/tags", ['timeout' => 3]);
+            $response = ($this->httpClient ?? new Client())->request(
+                'GET',
+                "{$this->ollamaUrl}/tags",
+                ['timeout' => 3],
+            );
         } catch (GuzzleException) {
             return false;
         }

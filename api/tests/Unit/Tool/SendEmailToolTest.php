@@ -33,14 +33,18 @@ final class SendEmailToolTest extends TestCase
         $result = $tool('it@example.com', 'Broken computer', 'Nie dziala mi komputer');
 
         $this->assertInstanceOf(Email::class, $sentEmail);
-        $this->assertSame(['it@example.com'], array_map(
+
+        $toAddresses = array_map(
             static fn ($address): string => $address->getAddress(),
             $sentEmail->getTo(),
-        ));
-        $this->assertSame(['jan.nowak@example.com'], array_map(
+        );
+        $this->assertSame(['it@example.com'], $toAddresses);
+
+        $replyToAddresses = array_map(
             static fn ($address): string => $address->getAddress(),
             $sentEmail->getReplyTo(),
-        ));
+        );
+        $this->assertSame(['jan.nowak@example.com'], $replyToAddresses);
         $this->assertSame(Department::It->value, $outcome->departmentEmail);
         $this->assertSame('Broken computer', $outcome->subject);
         $this->assertStringContainsString('it@example.com', $result);

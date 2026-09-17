@@ -27,7 +27,12 @@ final readonly class MessageRouterController
             content: new OA\JsonContent(
                 required: ['email', 'message'],
                 properties: [
-                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'jan.nowak@example.com'),
+                    new OA\Property(
+                        property: 'email',
+                        type: 'string',
+                        format: 'email',
+                        example: 'jan.nowak@example.com',
+                    ),
                     new OA\Property(property: 'message', type: 'string', example: 'Nie dziala mi komputer'),
                 ],
             ),

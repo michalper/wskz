@@ -20,9 +20,8 @@ COPY api/composer.json api/composer.lock ./
 RUN composer install --no-scripts --no-interaction --prefer-dist
 
 COPY api/ ./
-RUN composer dump-autoload --optimize
-
-RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin appuser \
+RUN composer dump-autoload --optimize \
+    && useradd --uid 1000 --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app
 USER 1000
 
