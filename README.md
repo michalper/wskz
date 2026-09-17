@@ -53,9 +53,12 @@ Response:
 ```json
 {
   "department": "it@example.com",
-  "subject": "..."
+  "subject": "Broken computer"
 }
 ```
+
+(the exact wording of `subject` comes from the LLM, so it varies between runs — the department
+is what matters and is what the fallback/tests actually assert on)
 
 The message shows up in MailHog (http://localhost:8025), addressed to the chosen department,
 with the `Reply-To` header set to `jan.nowak@example.com`.
