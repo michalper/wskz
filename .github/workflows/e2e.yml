@@ -8,9 +8,10 @@ on:
 
 jobs:
   e2e:
-    name: docker compose up + real routing request
+    name: docker compose up + real routing requests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 5 sequential live-LLM requests on CPU-only CI runners, ~1-3 min each.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
 
@@ -32,31 +33,58 @@ jobs:
             sleep 5
           done
 
-      - name: Send a routing request and capture the response
+      # One sample message per department the task lists, plus a message with no
+      # obvious department (exercises the "other@example.com" fallback path).
+      # A real LLM's classification is inherently non-deterministic (the task
+      # spec itself calls the messages "niedeterministyczne"), so this can only
+      # assert each response is *one of* the 5 allowed addresses -- not that the
+      # model picked the specific department a human would expect. Deterministic,
+      # exact-department coverage lives in MessageRoutingAgentTest's data
+      # provider (a fake LLM that always calls the tool, one case per address).
+      - name: Send one routing request per department and assert against MailHog
         run: |
-          curl -sf -X POST http://localhost:8080/api/v1/route-message \
-            -H "Content-Type: application/json" \
-            -d '{"email": "jan.nowak@example.com", "message": "Nie dziala mi komputer, prosze o pomoc"}' \
-            --max-time 280 \
-            -o response.json
-          cat response.json
+          declare -a senders=(
+            "it-sample@example.com"
+            "hr-sample@example.com"
+            "helpdesk-sample@example.com"
+            "kadry-sample@example.com"
+            "other-sample@example.com"
+          )
+          declare -a messages=(
+            "Nie dziala mi komputer, prosze o pomoc"
+            "Chcialbym zglosic urlop na jutro"
+            "Mam pytanie odnosnie dzialania waszej platformy"
+            "Prosze o wystawienie zaswiadczenia o zatrudnieniu"
+            "Czy moge dostac informacje o pogodzie na jutro?"
+          )
 
-      - name: Assert the department is one of the allowed addresses
-        run: |
-          department=$(jq -r '.department' response.json)
-          case "$department" in
-            human-resources@example.com|help-desk@example.com|it@example.com|kadry@example.com|other@example.com)
-              echo "Department OK: $department" ;;
-            *)
-              echo "Unexpected department: $department" && exit 1 ;;
-          esac
+          for i in "${!senders[@]}"; do
+            sender="${senders[$i]}"
+            message="${messages[$i]}"
+            echo "::group::Request $((i + 1))/5 -- $sender"
 
-      - name: Assert MailHog captured the email with the correct Reply-To
-        run: |
-          message=$(curl -sf http://localhost:8025/api/v2/messages | jq '.items[0]')
-          echo "$message" | jq .
-          reply_to=$(echo "$message" | jq -r '.Content.Headers["Reply-To"][0]')
-          [ "$reply_to" = "jan.nowak@example.com" ] || (echo "Wrong Reply-To: $reply_to" && exit 1)
+            curl -sf -X POST http://localhost:8080/api/v1/route-message \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg email "$sender" --arg message "$message" '{email: $email, message: $message}')" \
+              --max-time 280 \
+              -o response.json
+            cat response.json
+
+            department=$(jq -r '.department' response.json)
+            case "$department" in
+              human-resources@example.com|help-desk@example.com|it@example.com|kadry@example.com|other@example.com)
+                echo "Department OK: $department" ;;
+              *)
+                echo "Unexpected department: $department" && exit 1 ;;
+            esac
+
+            mail=$(curl -sf http://localhost:8025/api/v2/messages | jq --arg sender "$sender" \
+              '.items[] | select(.Content.Headers["Reply-To"][0] == $sender)')
+            [ -n "$mail" ] || (echo "No MailHog message found with Reply-To: $sender" && exit 1)
+            echo "$mail" | jq '{to: .To, replyTo: .Content.Headers["Reply-To"][0], subject: .Content.Headers["Subject"][0]}'
+
+            echo "::endgroup::"
+          done
 
       - name: Show logs on failure
         if: failure()
