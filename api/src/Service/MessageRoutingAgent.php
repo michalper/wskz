@@ -44,6 +44,7 @@ class MessageRoutingAgent
     public function route(string $senderEmail, string $message): RoutingOutcome
     {
         $outcome = new RoutingOutcome();
+        $sendEmailTool = new SendEmailTool($this->mailer, $senderEmail, $outcome);
 
         $agent = Agent::make()
             ->setAiProvider($this->provider ?? new Ollama(
@@ -63,7 +64,7 @@ class MessageRoutingAgent
                     'After the tool result comes back, reply with one short confirmation sentence.',
                 ],
             ))
-            ->addTool(new SendEmailTool($this->mailer, $senderEmail, $outcome));
+            ->addTool($sendEmailTool);
 
         try {
             $agent->chat(new UserMessage($message))->getMessage();
@@ -72,11 +73,7 @@ class MessageRoutingAgent
         }
 
         if (null === $outcome->departmentEmail) {
-            (new SendEmailTool($this->mailer, $senderEmail, $outcome))(
-                Department::Other->value,
-                'Unclassified request',
-                $message,
-            );
+            $sendEmailTool(Department::Other->value, 'Unclassified request', $message);
         }
 
         return $outcome;
